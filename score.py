@@ -1,4 +1,7 @@
 import pygame.font
+from pygame.sprite import Group
+
+from battleship import Ship
 
 class Scoreboard:
     """_summary_: Class for game scores
@@ -7,6 +10,7 @@ class Scoreboard:
     def __init__(self, ai_game):
         """_summary_: initialize score keeping attribute
         """
+        self.ai_game = ai_game
         self.screen = ai_game.screen
         self.screen_rect = self.screen.get_rect()
         self.settings = ai_game.settings
@@ -20,6 +24,7 @@ class Scoreboard:
         self.prep_score()
         self.prep_best_score()
         self.prep_level()
+        self.prep_ships()
     
     def prep_score(self):
         """_summary_: score will be turned into a rendered image
@@ -51,6 +56,7 @@ class Scoreboard:
         self.screen.blit(self.score_image, self.score_rect)
         self.screen.blit(self.best_score_img, self.best_score_rect)
         self.screen.blit(self.level_image, self.level_rect)
+        self.battleships.draw(self.screen)
     
     def check_best_score(self):
         """_summary_: checking for a new best score
@@ -69,3 +75,13 @@ class Scoreboard:
         self.level_rect = self.level_image.get_rect()
         self.level_rect.right = self.score_rect.right
         self.level_rect.top = self.score_rect.bottom + 10
+    
+    def prep_ships(self):
+        """_summary_:show number of battleships left
+        """
+        self.battleships = Group()
+        for no_ship in range(self.stats.ships_left):
+            battleship = Ship(self.ai_game)
+            battleship.rect.x = 10 + no_ship * battleship.rect.width
+            battleship.rect.y = 10
+            self.battleships.add(battleship)

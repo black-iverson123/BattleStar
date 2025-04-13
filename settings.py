@@ -35,7 +35,7 @@ class Settings:
         """
         self.ship_speed = 1.5
         self.laser_speed = 3.0
-        self.enemy_speed = 1.0
+        self.enemy_speed = 0.5
         
         # armada direction of 1 means right , -1 means left
         self.armada_direction = 1
