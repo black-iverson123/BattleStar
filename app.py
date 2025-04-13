@@ -1,8 +1,13 @@
 import sys
 import pygame
 from settings import Settings
-from ship import Ship
+from battleship import Ship
 from laser import Laser
+from enemy import Alien
+from time import sleep
+from stats import Stats
+from button import Button
+from score import Scoreboard
 
 class AlienInvasion:
     """_summary_: class to create, manage assets and game behaviour
@@ -16,11 +21,20 @@ class AlienInvasion:
         
         self.screen = pygame.display.set_mode((self.settings.screen_width, self.settings.screen_height))
         pygame.display.set_caption("Alien Invasion")
+        # create an instance to store game statistics
+        # and create a scoreboard
+        self.stats = Stats(self)
         #self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         #self.settings.screen_width = self.screen.get_rect().width
         #self.settings.screen_height = self.screen.get_rect().height
+        self.sb = Scoreboard(self)
         self.ship = Ship(self)
         self.lasers = pygame.sprite.Group()
+        self.enemies = pygame.sprite.Group()
+        self._create_armada()
+        
+        #make play button
+        self.play_button =Button(self, "Start game!!!")
         
         
     
@@ -30,11 +44,13 @@ class AlienInvasion:
         while True:
             """start main loop for the game"""
             self._check_events()
-            self.ship.update()
-            self.lasers.update()
-            self._update_lasers()
+            if self.stats.game_active:
+                self.ship.update()
+                self._update_lasers()
+                self._update_enemies()
+                
             self._update_screen()
-            
+
 
 
     
@@ -50,9 +66,38 @@ class AlienInvasion:
                 elif event.type == pygame.KEYUP:
                     #checking for key releases
                     self._check_keyup_events(event)
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+                    self._check_play_button(mouse_pos)
+    
+    def _check_play_button(self, mouse_pos):
+        """_summary_: Starts game upon clicking start game
+        """
+        clicked_button = self.play_button.rect.collidepoint(mouse_pos)
+        if clicked_button and not self.stats.game_active:
+            #Reset game settings
+            self.settings.dynamic_settings()
+            self._start_game()
+            #Hide mouse cursor
+            pygame.mouse.set_visible(False)
+    
+    def _start_game(self):
+        """_summary_: game start commands
+        """
+        #Reset game stats
+        self.stats.reset_stats()
+        self.stats.game_active=True
+        self.sb.prep_score()
+        self.sb.prep_level()
+            
+        #remove all remaining aliens and lasers
+        self.enemies.empty()
+        self.lasers.empty()
+            
+        #create a new armada and center battleship
+        self._create_armada()
+        self.ship.center_ship()
                 
-
-                        
     def _check_keydown_events(self, event):
         """_summary__: checking for keypresses and moving the ship accordingly
 
@@ -76,6 +121,9 @@ class AlienInvasion:
         if event.key == pygame.K_q:
             #quit game
             sys.exit()
+        if event.key == pygame.K_p:
+            #start game
+            self._start_game()
     
     def _check_keyup_events(self, event):
         """_summary__: checking for key releases and stopping the ship accordingly
@@ -113,6 +161,119 @@ class AlienInvasion:
         for laser in self.lasers.copy():
             if laser.rect.bottom <= 0:
                 self.lasers.remove(laser)  
+        
+        self._check_laser_enemy_contact()
+       
+    
+    def _check_laser_enemy_contact(self):
+        """_summary_: Responds to laser-enemy collision
+        """
+         #Here a check for if any laser hit enemies
+        #if true, remove enemy and laser
+        collisions = pygame.sprite.groupcollide(self.lasers, self.enemies, True, True)
+        
+        if collisions:
+            for enemies in collisions.values():
+                self.stats.score += self.settings.enemy_points * len(enemies)
+            self.sb.prep_score()
+            self.sb.check_best_score()
+        
+        if not self.enemies:
+            #Remove existing laser and create a new armada
+            self.lasers.empty()
+            self._create_armada()
+            self.settings.increase_speed()
+            
+            #increase level
+            self.stats.level += 1
+            self.sb.prep_level()
+    
+    def _create_armada(self):
+        """_summary_: create a fleet of aliens
+        """
+        enemy = Alien(self)
+        enemy_width, enemy_height = enemy.rect.size
+        space_x = self.settings.screen_width - (2 * enemy_width)
+        no_enemies_x = space_x // (2 * enemy_width)
+        # Determine the number of rows of aliens that fit on the screen.
+        ship_height = self.ship.rect.height
+        space_y = (self.settings.screen_height -(3 * enemy_height) - ship_height)
+        no_rows = space_y // (2 * enemy_height)
+        # Create the full fleet of aliens.
+        for row_number in range(no_rows):
+            for enemy_number in range(no_enemies_x):
+                self._create_enemy(enemy_number, row_number)
+            
+            
+    def _create_enemy(self, enemy_no, row_number):
+        """_summary_: create an enemy and place in row
+        """
+        enemy = Alien(self)
+        enemy_width, enemy_height = enemy.rect.size
+        enemy.x = enemy_width + 2 * enemy_width * enemy_no
+        enemy.rect.x = enemy.x
+        enemy.rect.y = enemy.rect.height + 2 * enemy.rect.height * row_number
+        self.enemies.add(enemy)
+    
+    def _check_armada_edges(self):
+        """_summary_: Gives best response if any alien has reached an edge
+        """
+        for enemy in self.enemies.sprites():
+            if enemy.check_boundaries():
+                self._change_armada_direction()
+                break
+        
+    def _change_armada_direction(self):
+        """_summary_: Drop the armada and changes direction
+        """
+        for enemy in self.enemies.sprites():
+            enemy.rect.y += self.settings.armada_speed_drop
+        self.settings.armada_direction *= -1
+        
+    def _update_enemies(self):
+        """Update enemy position, checking if fleet is at screen 
+           boundary then updated positions for all enemies in
+           armada """
+        self._check_armada_edges()
+        self.enemies.update()
+        
+        # look for alien-player collision
+        if pygame.sprite.spritecollideany(self.ship, self.enemies):
+            self._ship_hit()
+            
+        #look for enemy reeaching the screen bottom
+        self._check_enemy_at_bottom()
+    
+    def _ship_hit(self):
+        """_summary_: Respond to the ship being hit by an enemy
+        """
+        if self.stats.ships_left > 0:
+            #Decrement ships_left
+            self.stats.ships_left -= 1
+    
+            #Get rid of any remainig enemies and lasers
+            self.enemies.empty()
+            self.lasers.empty()
+            
+            sleep(0.5)
+            #create a new armada and center the battleship
+            self._create_armada()
+            self.ship.center_ship()
+        else:
+            self.stats.game_active=False
+    
+    def _check_enemy_at_bottom(self):
+        """_summary_: Checking if enemies have reached bottom of screen
+        """
+        screen_rect = self.screen.get_rect()
+        for enemy in self.enemies.sprites():
+            if enemy.rect.bottom >= screen_rect.bottom:
+                #behave like ship has been hit
+                self.enemies.empty()
+                self.lasers.empty()
+                
+                self._create_armada()
+                self.ship.center_ship()
                 
     def _update_screen(self):
             # redrawing the screen during each pass through the loop
@@ -120,7 +281,15 @@ class AlienInvasion:
             self.ship.blitme()
             for laser in self.lasers.sprites():
                 laser.draw_laser()
-                    
+            self.enemies.draw(self.screen)
+            
+            #Draw the score informaion
+            self.sb.show_score()
+            
+            #Draw the play button if the game is inactive
+            if not self.stats.game_active:
+                self.play_button.draw()
+            
             # to make most recently drawn screen visible
             pygame.display.flip()
         
