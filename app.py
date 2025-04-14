@@ -41,6 +41,7 @@ class AlienInvasion:
     def run_game(self):
         """_summary_: game loop for the game is started
         """
+        clock = pygame.time.Clock()
         while True:
             """start main loop for the game"""
             self._check_events()
@@ -48,11 +49,10 @@ class AlienInvasion:
                 self.ship.update()
                 self._update_lasers()
                 self._update_enemies()
+                self._big_shot()
                 
             self._update_screen()
-
-
-
+            #clock.tick(60) #limitting  game to a capped frame rate to avoid lagging
     
     def _check_events(self):
             #listening and checking for exit event
@@ -106,24 +106,32 @@ class AlienInvasion:
             event (_type_): type of event recorded by pygame event handler
         """
         if event.key == pygame.K_RIGHT:
-            #move ship to the right
+            # move ship to the right
             self.ship.move_right = True
         if event.key == pygame.K_LEFT:
-            #move ship to the left
+            # move ship to the left
             self.ship.move_left = True
         if event.key == pygame.K_UP:
-            #move ship upwards
+            # move ship upwards
             self.ship.move_up = True
         if event.key == pygame.K_DOWN:
-            #move ship downwards
-            self.ship.move_down =True
+            # move ship downwards
+            self.ship.move_down = True
         if event.key == pygame.K_SPACE:
             self._fire_laser()
         if event.key == pygame.K_q:
-            #quit game
+            # quit game
             sys.exit()
+        if event.key == pygame.K_d:
+            now = pygame.time.get_ticks()
+            if not self.settings.big_shot_active and (now - self.settings.big_shot_last_used) >= self.settings.big_shot_cooldown:
+                self.settings.big_shot_active = True
+                self.settings.big_shot_start_time = now
+                self.settings.laser_colour = (255, 165, 0)
+                self.settings.laser_width = 10
+                self.settings.laser_height = 40
         if event.key == pygame.K_p:
-            #start game
+            # start game
             self._start_game()
     
     def _check_keyup_events(self, event):
@@ -146,15 +154,27 @@ class AlienInvasion:
             self.ship.move_down = False
         
     def _fire_laser(self):
-        """_summary_: firing a laser from the ship
-        """
-        #create a new laser and add it to the lasers group
+        """_summary_: Fire a laser from the ship"""
         if len(self.lasers) < self.settings.allowed_lasers:
+            # Create a new laser with the current settings
             new_laser = Laser(self)
             self.lasers.add(new_laser)
-        
+            
+            # Fire additional lasers from the wings when above level 3
+            if self.stats.level >= 3:
+                self.settings.laser_colour = (0, 0,255)
+                if self.settings.big_shot_active:
+                    self.settings.laser_colour = (255, 165, 0)
+                left_laser = Laser(self)
+                left_laser.rect.midtop = self.ship.rect.midleft
+                self.lasers.add(left_laser)
+                
+                right_laser = Laser(self)
+                right_laser.rect.midtop = self.ship.rect.midright
+                self.lasers.add(right_laser)
+            
     def _update_lasers(self):
-        """update position of lasers and removes old ones"""
+        """_summary_: update position of lasers and removes old ones"""
         #updating laser position
         self.lasers.update()
         
@@ -164,8 +184,26 @@ class AlienInvasion:
                 self.lasers.remove(laser)  
         
         self._check_laser_enemy_contact()
-       
     
+    def _big_shot(self):
+        """_summary_: Activate or deactivate big shot based on timing."""
+        if self.settings.big_shot_active:
+            now = pygame.time.get_ticks()
+            elapsed_time = now - self.settings.big_shot_start_time
+            if elapsed_time >= self.settings.big_shot_duration:
+                # Time's up: deactivate big shot
+                self.settings.big_shot_active = False
+                if self.stats.level >= 3:
+                    self.settings.laser_colour = (0, 0, 255)
+                self.settings.laser_width = 3
+                self.settings.laser_height = 15
+                self.settings.big_shot_last_used = now  # Start cooldown timer
+
+                # Reset existing lasers to normal size and color
+                for laser in self.lasers.sprites():
+                    laser.rect.width = self.settings.laser_width
+                    laser.rect.height = self.settings.laser_height
+
     def _check_laser_enemy_contact(self):
         """_summary_: Responds to laser-enemy collision
         """
@@ -277,23 +315,36 @@ class AlienInvasion:
                 self._create_armada()
                 self.ship.center_ship()
                 
+    
     def _update_screen(self):
-            # redrawing the screen during each pass through the loop
-            self.screen.fill(self.settings.bg_colour)
-            self.ship.blitme()
-            for laser in self.lasers.sprites():
-                laser.draw_laser()
-            self.enemies.draw(self.screen)
-            
-            #Draw the score informaion
-            self.sb.show_score()
-            
-            #Draw the play button if the game is inactive
-            if not self.stats.game_active:
-                self.play_button.draw()
-            
-            # to make most recently drawn screen visible
-            pygame.display.flip()
+        """_summary_: Redraw the screen during each pass through the loop."""
+        self.screen.fill(self.settings.bg_colour)
+        self.ship.blitme()
+        for laser in self.lasers.sprites():
+            laser.draw_laser()
+        self.enemies.draw(self.screen)
+
+        # Draw the score information
+        self.sb.show_score()
+
+        # Draw the play button if the game is inactive
+        if not self.stats.game_active:
+            self.play_button.draw()
+
+        # Display "BIG SHOT ACTIVE!" message
+        if self.settings.big_shot_active:
+            font = pygame.font.SysFont(None, 15)
+            text = font.render("BIG SHOT ACTIVE!!!", True, (255, 165, 0))
+            self.screen.blit(text, (20, 60))
+
+        # Display cooldown timer for big shot
+        if not self.settings.big_shot_active and self.stats.game_active:
+            cooldown_remaining = max(0, (self.settings.big_shot_cooldown - (pygame.time.get_ticks() - self.settings.big_shot_last_used)) // 1000)
+            font = pygame.font.SysFont(None, 15)
+            text = font.render(f"Big Shot Cooldown: {cooldown_remaining}s", True, (255, 165, 0))
+            self.screen.blit(text, (20, 60))
+
+        pygame.display.flip()
         
                 
             
