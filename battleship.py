@@ -43,7 +43,7 @@ class Ship(Sprite):
     def update(self):
         #updating ship position based on movement flags
         if self.move_right and self.rect.right < self.screen_rect.right:
-            self.x += self.settings.ship_speed
+            self.x += self.settings.ship_speedgit
         if self.move_left and self.rect.left > 0:
             self.x -= self.settings.ship_speed
         if self.move_down and self.rect.bottom < self.screen_rect.bottom:
