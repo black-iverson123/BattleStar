@@ -15,7 +15,7 @@ class Alien(Sprite):
         self.screen = ai_game.screen
         self.settings = ai_game.settings        
         #loading imagefile for alien
-        self.image = pygame.image.load("images/alien.bmp")
+        self.image = pygame.image.load("assets/images/alien.bmp")
         self.rect = self.image.get_rect()
         
         #loading each alien near the top of the screen.

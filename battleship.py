@@ -14,7 +14,7 @@ class Ship(Sprite):
         
         
         #load the ship image and get its rect
-        self.image = pygame.image.load('images/ship.bmp')
+        self.image = pygame.image.load('assets/images/ship.bmp')
         self.rect = self.image.get_rect()
         
         #start each new ship at the bottom 
@@ -43,7 +43,7 @@ class Ship(Sprite):
     def update(self):
         #updating ship position based on movement flags
         if self.move_right and self.rect.right < self.screen_rect.right:
-            self.x += self.settings.ship_speedgit
+            self.x += self.settings.ship_speed
         if self.move_left and self.rect.left > 0:
             self.x -= self.settings.ship_speed
         if self.move_down and self.rect.bottom < self.screen_rect.bottom:

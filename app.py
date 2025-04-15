@@ -8,8 +8,10 @@ from time import sleep
 from stats import Stats
 from button import Button
 from score import Scoreboard
+from sounds import GameSounds
 
-class AlienInvasion:
+
+class BattleStar:
     """_summary_: class to create, manage assets and game behaviour
     """
     
@@ -20,7 +22,11 @@ class AlienInvasion:
         self.settings=Settings()
         
         self.screen = pygame.display.set_mode((self.settings.screen_width, self.settings.screen_height))
-        pygame.display.set_caption("Alien Invasion")
+        pygame.display.set_caption("BattleStar")
+        
+        #play background music
+        sound = GameSounds(self)
+        sound._play_back_sound("assets/sounds/back_music.wav")
         # create an instance to store game statistics
         # and create a scoreboard
         self.stats = Stats(self)
@@ -34,7 +40,7 @@ class AlienInvasion:
         self._create_armada()
         
         #make play button
-        self.play_button =Button(self, "Start game!!!")
+        self.play_button =Button(self, "Press p or Click here!!!")
         
         
     
@@ -84,6 +90,10 @@ class AlienInvasion:
     def _start_game(self):
         """_summary_: game start commands
         """
+        #stop background music
+        sound = GameSounds(self)
+        sound._stop_sound()
+        
         #Reset game stats
         self.stats.reset_stats()
         self.stats.game_active=True
@@ -160,19 +170,29 @@ class AlienInvasion:
             new_laser = Laser(self)
             self.lasers.add(new_laser)
             
+            # play the laser sound
+            sound = GameSounds(self)
+            sound._play_laser_sound(self.settings.laser_colour)
+            
+            
             # Fire additional lasers from the wings when above level 3
             if self.stats.level >= 3:
                 self.settings.laser_colour = (0, 0,255)
                 if self.settings.big_shot_active:
                     self.settings.laser_colour = (255, 165, 0)
+                
+                #left laser settings  
                 left_laser = Laser(self)
                 left_laser.rect.midtop = self.ship.rect.midleft
                 self.lasers.add(left_laser)
+                sound._play_laser_sound(self.settings.laser_colour)
                 
+                #right laser settings
                 right_laser = Laser(self)
                 right_laser.rect.midtop = self.ship.rect.midright
                 self.lasers.add(right_laser)
-            
+                sound._play_laser_sound(self.settings.laser_colour)
+
     def _update_lasers(self):
         """_summary_: update position of lasers and removes old ones"""
         #updating laser position
@@ -186,7 +206,7 @@ class AlienInvasion:
         self._check_laser_enemy_contact()
     
     def _big_shot(self):
-        """_summary_: Activate or deactivate big shot based on timing."""
+        """Activate or deactivate big shot based on timing."""
         if self.settings.big_shot_active:
             now = pygame.time.get_ticks()
             elapsed_time = now - self.settings.big_shot_start_time
@@ -194,7 +214,7 @@ class AlienInvasion:
                 # Time's up: deactivate big shot
                 self.settings.big_shot_active = False
                 if self.stats.level >= 3:
-                    self.settings.laser_colour = (0, 0, 255)
+                    self.settings.laser_colour = (0, 0, 255)  # Reset to blue for level 3+
                 self.settings.laser_width = 3
                 self.settings.laser_height = 15
                 self.settings.big_shot_last_used = now  # Start cooldown timer
@@ -203,6 +223,19 @@ class AlienInvasion:
                 for laser in self.lasers.sprites():
                     laser.rect.width = self.settings.laser_width
                     laser.rect.height = self.settings.laser_height
+        else:
+            # Activate Big Shot and play the sound
+            now = pygame.time.get_ticks()
+            if (now - self.settings.big_shot_last_used) >= self.settings.big_shot_cooldown:
+                self.settings.big_shot_active = True
+                self.settings.big_shot_start_time = now
+                self.settings.laser_colour = (255, 165, 0)  # Orange for Big Shot
+                self.settings.laser_width = 10
+                self.settings.laser_height = 40
+
+                # Play the Big Shot laser sound
+                sound = GameSounds(self)
+                sound._play_laser_sound(self.settings.laser_colour)
 
     def _check_laser_enemy_contact(self):
         """_summary_: Responds to laser-enemy collision
@@ -210,8 +243,11 @@ class AlienInvasion:
          #Here a check for if any laser hit enemies
         #if true, remove enemy and laser
         collisions = pygame.sprite.groupcollide(self.lasers, self.enemies, True, True)
+        #play sound when enemy sprites are hit
+        sound = GameSounds(self)
         
         if collisions:
+            sound._contact_sound()
             for enemies in collisions.values():
                 self.stats.score += self.settings.enemy_points * len(enemies)
             self.sb.prep_score()
@@ -286,9 +322,13 @@ class AlienInvasion:
     def _ship_hit(self):
         """_summary_: Respond to the ship being hit by an enemy
         """
+        #play sound when ship is hit by enemy sprite
+        sound = GameSounds(self)
+        
         if self.stats.ships_left > 0:
             #Decrement ships_left and update scoreboard
             self.stats.ships_left -= 1
+            sound._contact_sound()
             self.sb.prep_ships()
             
             #Get rid of any remainig enemies and lasers
@@ -317,11 +357,21 @@ class AlienInvasion:
                 
     
     def _update_screen(self):
-        """_summary_: Redraw the screen during each pass through the loop."""
-        self.screen.fill(self.settings.bg_colour)
+        """Redraw the screen during each pass through the loop."""
+        # Draw the background image or fallback to background color
+        if self.settings.back_image:
+            self.screen.blit(self.settings.back_image, (0, 0))
+        else:
+            self.screen.fill(self.settings.bg_colour)
+
+        # Draw the ship
         self.ship.blitme()
+
+        # Draw lasers
         for laser in self.lasers.sprites():
             laser.draw_laser()
+
+        # Draw enemies
         self.enemies.draw(self.screen)
 
         # Draw the score information
@@ -344,10 +394,11 @@ class AlienInvasion:
             text = font.render(f"Big Shot Cooldown: {cooldown_remaining}s", True, (255, 165, 0))
             self.screen.blit(text, (20, 60))
 
+        # Update the display
         pygame.display.flip()
         
                 
             
 if __name__ == "__main__":
-    ai =  AlienInvasion()
+    ai =  BattleStar()
     ai.run_game()

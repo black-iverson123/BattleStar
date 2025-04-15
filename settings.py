@@ -1,3 +1,5 @@
+import pygame
+
 class Settings:
     """_summary_: A class to keep game settings
     """
@@ -9,7 +11,8 @@ class Settings:
         self.screen_width = 650
         self.screen_height = 700
         self.bg_colour = (230, 230, 230)
-        
+        # Load and scale the background image
+        self.back_image = self._load_background_image("assets/images/background.jpg")
         #ship settings
         self.ship_limit = 3
         
@@ -59,3 +62,11 @@ class Settings:
         
         self.enemy_points = int(self.enemy_points * self.score_scale)  
          
+    def _load_background_image(self, file_path):
+        """Load and scale the background image."""
+        try:
+            image = pygame.image.load(file_path)
+            return pygame.transform.scale(image, (self.screen_width, self.screen_height))
+        except (pygame.error, FileNotFoundError) as e:  # Correctly handle multiple exceptions
+            print(f"Error loading background image: {e}")
+            return None  # Return None to indicate fallback to plain background color
