@@ -82,6 +82,10 @@ class Scoreboard:
         self.battleships = Group()
         for no_ship in range(self.stats.ships_left):
             battleship = Ship(self.ai_game)
-            battleship.rect.x = 10 + no_ship * battleship.rect.width
-            battleship.rect.y = 10
+            battleship.image = pygame.transform.scale(battleship.image, (50, 40)) #Resizing image to 50x40 pixels
+            battleship.rect = battleship.image.get_rect()
+            
+            #Position the ships on the screen
+            battleship.rect.x = 10 + no_ship * (battleship.rect.width + 10) # Add spacing between ships
+            battleship.rect.y = 10 #position at the top left corner of the screen
             self.battleships.add(battleship)

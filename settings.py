@@ -10,9 +10,9 @@ class Settings:
         #Screen settings
         self.screen_width = 650
         self.screen_height = 700
-        self.bg_colour = (230, 230, 230)
+        self.bg_colour = (0, 0, 0)
         # Load and scale the background image
-        self.back_image = self._load_background_image("assets/images/background.jpg")
+        self.back_image = self._load_background_image("assets/images/back_image.jpg")
         #ship settings
         self.ship_limit = 3
         

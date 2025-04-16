@@ -14,7 +14,8 @@ class Ship(Sprite):
         
         
         #load the ship image and get its rect
-        self.image = pygame.image.load('assets/images/ship.bmp')
+        self.image = pygame.image.load('assets/images/Battleship.png').convert_alpha()
+        self.image = pygame.transform.scale(self.image, (120, 100))  # Resize the image to 120x100 pixels
         self.rect = self.image.get_rect()
         
         #start each new ship at the bottom 
